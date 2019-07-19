@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">pushApp2</string>
+    <string name="default_notification_channel_id">sample</string>
 </resources>
