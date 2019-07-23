@@ -7,11 +7,15 @@
  */
 
 import React, { Component } from 'react';
-import { View, Button, Text, StyleSheet } from 'react-native';
+import { View, Button, Text, StyleSheet, AppRegistry } from 'react-native';
 import PushNotification from 'react-native-push-notification';
+import PushNotificationAndroid from 'react-native-push-notification'
+
 import PushController from './PushNotification';
-import { AsyncStorage } from 'react-native';
+import { AsyncStorage, DeviceEventEmitter } from 'react-native';
 import firebase from 'react-native-firebase';
+import bgMessaging from './bgMessaging';
+
 // PushController
 // import PushController from './PushController.js'; 
 
@@ -21,6 +25,23 @@ export default class App extends Component {
     this.state = {};
     // this.handleAppStateChange = this.handleAppStateChange.bind(this);
     this.sendNotification = this.sendNotification.bind(this);
+    PushNotificationAndroid.registerNotificationActions(['Accept','Reject', 'Yes', 'No']);
+    DeviceEventEmitter.addListener('notificationActionReceived', function(action){
+      console.log ('Notification action received: ' );
+      console.log(JSON.parse(action.dataJSON).action)
+      const info = JSON.parse(action.dataJSON);
+      if (info.action == 'Accept') {
+        console.log("Accept")
+        // Do work pertaining to Accept action here
+      } else if (info.action == 'Reject') {
+        console.log("Reject")
+
+        // Do work pertaining to Reject action here
+      }
+      // Add all the required actions handlers
+    });
+
+    AppRegistry.registerHeadlessTask('RNFirebaseBackgroundMessage', () => bgMessaging); 
   };
 
   componentDidMount() {
@@ -35,6 +56,8 @@ export default class App extends Component {
 
     this.notificationListener = firebase.notifications().onNotification((notification) => {
       const { title, body } = notification;
+      console.log("onNotification")
+      console.log(notificationOpen.notification)
       // this.showAlert(title, body);
       // this.sendNotification("opened");
 
@@ -42,6 +65,8 @@ export default class App extends Component {
 
     this.notificationOpenedListener = firebase.notifications().onNotificationOpened((notificationOpen) => {
       const { title, body } = notificationOpen.notification;
+      console.log("onNotificationOpened")
+      console.log(notificationOpen.notification)
       // this.showAlert(title, body);
       // this.sendNotification("colsed");
     });
@@ -49,12 +74,16 @@ export default class App extends Component {
     const notificationOpen = await firebase.notifications().getInitialNotification();
     if (notificationOpen) {
       const { title, body } = notificationOpen.notification;
+      console.log("getInitialNotification")
+      console.log(notificationOpen.notification)
       this.showAlert(title, body);
     }
 
     this.messageListener = firebase.messaging().onMessage((message) => {
       //process data message
       console.log(JSON.stringify(message));
+      this.sendNotification(message);
+
     });
 
   }
@@ -86,17 +115,9 @@ export default class App extends Component {
     // }
   };
 
-  sendNotification() {
+  sendNotification(message) {
     console.log("send notification")
-    PushNotification.localNotification({
-      title: "My Notification Title ", // (optional)
-      message: "My Notification Message", // (required)
-      playSound: true, // (optional) default: true
-      soundName: 'default', // (optional) Sound to play when the notification is shown. Value of 'default' plays the default sound. It can be set to a custom sound such as 'android.resource://com.xyz/raw/my_sound'. It will look for the 'my_sound' audio file in 'res/raw' directory and play it. default: 'default' (default sound is played)
-      number: '10', // (optional) Valid 32 bit integer specified as string. default: none (Cannot be zero)
-      repeatType: 'day', // (optional) Repeating interval. Check 'Repeating Notifications' section for more info.
-      actions: '["Yes", "No"]',
-    });
+    PushNotification.localNotification(message._data);
   };
 
   async checkPermission() {
